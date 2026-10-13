@@ -1,0 +1,96 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Release build with the system compiler",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "aix-openxl",
+      "displayName": "AIX 7.2 TL5+/7.3 with IBM Open XL C/C++ 17.1.3 (64-bit)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/aix-openxl",
+      "toolchainFile": "${sourceDir}/cmake/Toolchain-aix-openxl.cmake",
+      "environment": {
+        "OBJECT_MODE": "64"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BTOP_GPU": "OFF",
+        "BTOP_LTO": "OFF",
+        "BUILD_TESTING": "OFF"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "AIX"
+      }
+    },
+    {
+      "name": "aix-openxl-debug",
+      "inherits": "aix-openxl",
+      "displayName": "AIX debug build (-O0 -g, libc++ hardening)",
+      "binaryDir": "${sourceDir}/build/aix-openxl-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "aix71-openxl",
+      "inherits": "aix-openxl",
+      "displayName": "AIX 7.1 target: Open XL on 7.2 host, 7.1 sysroot, static libc++ 19",
+      "binaryDir": "${sourceDir}/build/aix71-openxl",
+      "toolchainFile": "${sourceDir}/cmake/Toolchain-aix-sysroot-openxl.cmake",
+      "cacheVariables": {
+        "BTOP_AIX_SYSROOT": "/build/btop-aix/sysroot71",
+        "BTOP_AIX_RUNTIME": "/build/btop-aix/rt71",
+        "BTOP_AIX_COMPAT": "/build/btop-aix/aix71_compat.h"
+      }
+    },
+    {
+      "name": "aix61-openxl",
+      "inherits": "aix-openxl",
+      "displayName": "AIX 6.1 target: Open XL on 7.2 host, 6.1 sysroot, static libc++ 19, xlocale shim",
+      "binaryDir": "${sourceDir}/build/aix61-openxl",
+      "toolchainFile": "${sourceDir}/cmake/Toolchain-aix-sysroot-openxl.cmake",
+      "cacheVariables": {
+        "BTOP_AIX_SYSROOT": "/build/btop-aix/sysroot61",
+        "BTOP_AIX_RUNTIME": "/build/btop-aix/rt61",
+        "BTOP_AIX_COMPAT": "/build/btop-aix/aix61_compat.h",
+        "BTOP_AIX_EXTRA_FLAGS": "-fno-builtin-strlen -fno-builtin-strcmp"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "aix-openxl",
+      "configurePreset": "aix-openxl"
+    },
+    {
+      "name": "aix-openxl-debug",
+      "configurePreset": "aix-openxl-debug"
+    },
+    {
+      "name": "aix71-openxl",
+      "configurePreset": "aix71-openxl"
+    },
+    {
+      "name": "aix61-openxl",
+      "configurePreset": "aix61-openxl"
+    }
+  ]
+}
