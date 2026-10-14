@@ -35,7 +35,11 @@ tab-size = 4
 // From `man 3 getifaddrs`: <net/if.h> must be included before <ifaddrs.h>
 // clang-format off
 #include <net/if.h>
-#include <ifaddrs.h>
+#if defined(_AIX)
+# include "aix/aix_ifaddrs.hpp" // AIX has no <ifaddrs.h>; replacement on top of SIOCGIFCONF
+#else
+# include <ifaddrs.h>
+#endif
 // clang-format on
 
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)

@@ -57,6 +57,10 @@ tab-size = 4
 	#include <unistd.h>
 #endif
 
+#ifdef _AIX
+	#include "aix/aix_selfpath.hpp"
+#endif
+
 #include <fmt/core.h>
 #include <fmt/ostream.h>
 
@@ -213,7 +217,8 @@ void clean_quit(int sig) {
 	Global::quitting = true;
 	Runner::stop();
 	if (Global::_runner_started) {
-	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__
+	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__ || defined _AIX
+		// AIX has no pthread_timedjoin_np()
 		if (pthread_join(Runner::runner_id, nullptr) != 0) {
 			Logger::warning("Failed to join _runner thread on exit!");
 		}
@@ -256,7 +261,12 @@ void clean_quit(int sig) {
 #if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__
 	_Exit(excode);
 #else
+#if defined(_AIX)
+	// quick_exit(3) exists on AIX only since 6.1 TL9 / 7.1 TL3 (missing on 7100-02); btop registers no at_quick_exit handlers
+	_Exit(excode);
+#else
 	quick_exit(excode);
+#endif
 #endif
 }
 
@@ -909,6 +919,9 @@ static auto configure_tty_mode(std::optional<bool> force_tty) {
 		if (sysctl(mib, 4, buf, &bufsize, NULL, 0) == 0)
 			Global::self_path = fs::path(buf).remove_filename();
 	}
+#elif defined(_AIX)
+	//? No /proc/self/exe on AIX: argv[0] of the own process via getprocs64/getargs (src/aix/aix_selfpath.cpp)
+	Global::self_path = Aix::executable_dir();
 #endif
 	if (std::error_code ec; not Global::self_path.empty()) {
 		Theme::theme_dir = fs::canonical(Global::self_path / "../share/btop/themes", ec);
