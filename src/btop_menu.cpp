@@ -110,6 +110,16 @@ namespace Menu {
 		"SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH",
 		"SIGIO", "SIGPWR", "SIGSYS"
 #endif
+#elif defined(_AIX)
+		// Signal numbers from <sys/signal.h> on AIX 7.2 (26 is unassigned)
+		"SIGHUP", "SIGINT", "SIGQUIT", "SIGILL",
+		"SIGTRAP", "SIGABRT", "SIGEMT", "SIGFPE",
+		"SIGKILL", "SIGBUS", "SIGSEGV", "SIGSYS",
+		"SIGPIPE", "SIGALRM", "SIGTERM", "SIGURG",
+		"SIGSTOP", "SIGTSTP", "SIGCONT", "SIGCHLD",
+		"SIGTTIN", "SIGTTOU", "SIGIO", "SIGXCPU",
+		"SIGXFSZ", "26", "SIGMSG", "SIGWINCH",
+		"SIGPWR", "SIGUSR1", "SIGUSR2"
 #elif defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__APPLE__)
 		"SIGHUP", "SIGINT", "SIGQUIT", "SIGILL",
 		"SIGTRAP", "SIGABRT", "SIGEMT", "SIGFPE",
