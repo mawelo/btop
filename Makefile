@@ -194,6 +194,13 @@ else ifeq ($(PLATFORM_LC),netbsd)
 	override ADDFLAGS += -lkvm -lprop
 	export MAKE = gmake
 	SU_GROUP := wheel
+else ifeq ($(PLATFORM_LC),aix)
+	PLATFORM_DIR := aix
+	THREADS	:= $(shell lsdev -Cc processor 2>/dev/null | grep -c Available || echo 1)
+	#? 64-bit objects; _ALL_SOURCE unhides BSD/XPG extensions under -std=c++23; libperfstat for all counters
+	override ADDFLAGS += -m64 -D_ALL_SOURCE -D_THREAD_SAFE -lperfstat
+	export MAKE = gmake
+	SU_GROUP := system
 else
 $(error $(call red_i,ERROR: $(WHITE)Unsupported platform ($(PLATFORM))))
 endif
@@ -204,9 +211,11 @@ ifeq ($(THREADS),1)
 	override THREADS := auto
 endif
 
-#? LTO command line
+#? LTO command line (not on AIX: IBM Open XL has no thin LTO and the AIX linker needs libLTO plumbing)
 ifeq ($(BUILD_TYPE),Release)
-	ifeq ($(CXX_IS_CLANG),true)
+	ifeq ($(PLATFORM_LC),aix)
+		LTO :=
+	else ifeq ($(CXX_IS_CLANG),true)
 		LTO := -flto=thin
 	else
 		LTO := -flto=$(THREADS)
@@ -245,9 +254,10 @@ ifdef DEBUG
 	override OPTFLAGS := -O0 -g
 endif
 
-SOURCES	:= $(sort $(shell find $(SRCDIR) -maxdepth 1 -type f -name *.$(SRCEXT)))
+#? $(wildcard) instead of find: AIX find has no -maxdepth
+SOURCES	:= $(sort $(wildcard $(SRCDIR)/*.$(SRCEXT)))
 
-SOURCES += $(sort $(shell find $(SRCDIR)/$(PLATFORM_DIR) -maxdepth 1 -type f -name *.$(SRCEXT)))
+SOURCES += $(sort $(wildcard $(SRCDIR)/$(PLATFORM_DIR)/*.$(SRCEXT)))
 
 OBJECTS	:= $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.$(OBJEXT)))
 
