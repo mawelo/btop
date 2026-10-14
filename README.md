@@ -39,6 +39,7 @@
 * [Compilation FreeBSD](#compilation-freebsd)
 * [Compilation NetBSD](#compilation-netbsd)
 * [Compilation OpenBSD](#compilation-openbsd)
+* [Compilation AIX](#compilation-aix)
 * [Testing](#testing)
 * [GPU compatibility](#gpu-compatibility)
 * [Installing the snap](#installing-the-snap)
@@ -1290,6 +1291,50 @@ See [GPU compatibility](#gpu-compatibility) section for more about compiling wit
 Testing requires [CMake](cmake.org). Tests are build by default and can be run with `ctest --test-dir <build>`.
 
 If you want to disable building tests, pass `-DBUILD_TESTING=OFF` to the configure step.
+
+## Compilation AIX
+
+   Supported: AIX 7.2 TL5 and 7.3 with IBM Open XL C/C++ 17.1.3 or newer (LLVM 19 based, ships libc++ 19).
+   AIX 7.1 has no C++23 compiler; a 7.1 binary is built on a 7.2 host against a 7.1 sysroot with a
+   static libc++, see `docs/aix-port.md`.
+
+   Data sources are libperfstat (CPU, memory, disks, network), `mntctl(2)`/`statvfs(2)` (file systems)
+   and `getprocs64(3)` (processes). Physical volumes (`hdiskN`) appear in the disks box next to the
+   mounted file systems; per file system I/O needs LVM statistics (`lvmstat -e`). No sensors, no battery, no GPU.
+
+   **Requirements**
+
+   * `openxlCcmp.17.1.3` (or newer) from IBM
+   * `cmake` >= 3.25 and `ninja-build` (or GNU `make`) from the AIX Toolbox
+
+   **With CMake (preset `aix-openxl`)**
+
+   ```bash
+   export PATH=/opt/freeware/bin:$PATH OBJECT_MODE=64
+   cmake --preset aix-openxl
+   cmake --build --preset aix-openxl -j 8
+   build/aix-openxl/btop --version
+   ```
+
+   The toolchain file `cmake/Toolchain-aix-openxl.cmake` selects `/opt/IBM/openxlC/17.1.3`; pass
+   `-DBTOP_OPENXL_ROOT=/opt/IBM/openxlC/17.1.4` for another level. LTO and GPU support are off on AIX.
+
+   **With GNU make**
+
+   ```bash
+   gmake CXX=/opt/IBM/openxlC/17.1.3/bin/ibm-clang++_r
+   ```
+
+   **Runtime dependencies** of the resulting 64-bit binary: `libc.a`, `libpthreads.a`, `libperfstat.a`
+   and the IBM Open XL runtime filesets `libc++.rte`, `libc++abi.rte`, `libunwind.rte` (17.1.3 or newer).
+
+   **Notes**
+
+   * The terminal must speak UTF-8. Without a UTF-8 locale on the host (`bos.loc.utf.EN_US` is rarely
+     installed) start btop with `LANG=en_US.UTF-8` in the environment or with `--force-utf`; btop then
+     logs a warning and continues.
+   * `--sysroot`, Open XL and the AIX linker: see `docs/aix-port.md` for the 7.1 build and the list of
+     AIX specific pitfalls met while porting.
 
 ## Installing the snap
 [![btop](https://snapcraft.io/btop/badge.svg)](https://snapcraft.io/btop)

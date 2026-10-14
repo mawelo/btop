@@ -79,6 +79,8 @@ elseif(LINUX)
   if(BTOP_GPU)
     add_subdirectory(src/linux/intel_gpu_top)
   endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  target_sources(libbtop PRIVATE src/aix/btop_collect.cpp src/aix/aix_ifaddrs.cpp src/aix/aix_selfpath.cpp)
 else()
   message(FATAL_ERROR "${CMAKE_SYSTEM_NAME} is not supported")
 endif()
@@ -89,6 +91,11 @@ execute_process(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   OUTPUT_VARIABLE GIT_COMMIT
   OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+# Source tarballs have no .git: the commit can then be passed in (CI driver, package build)
+set(BTOP_GIT_COMMIT "" CACHE STRING "Commit to embed in --version when the tree is not a git checkout")
+if(NOT GIT_COMMIT AND BTOP_GIT_COMMIT)
+  set(GIT_COMMIT "${BTOP_GIT_COMMIT}")
+endif()
 set(CONFIGURE_COMMAND
     "cmake -DBTOP_STATIC=${BTOP_STATIC} -DBTOP_GPU=${BTOP_GPU}"
 )
@@ -135,7 +142,8 @@ target_compile_options(libbtop PUBLIC -Wall -Wextra -Wpedantic)
 
 include(CheckCXXCompilerFlag)
 
-if(NOT APPLE)
+if(NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  # IBM Open XL on AIX accepts the flag but ignores it with a warning on every file
   target_compile_options(libbtop PUBLIC -fstack-clash-protection)
 endif()
 check_cxx_compiler_flag(-fstack-protector HAS_FSTACK_PROTECTOR)
@@ -247,6 +255,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
   find_package(kvm REQUIRED)
   find_package(proplib REQUIRED)
   target_link_libraries(libbtop kvm::kvm proplib::proplib)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  # _ALL_SOURCE: with -std=c++23 (strict ANSI) the AIX headers hide BSD and
+  # XPG extensions such as sa_len, SIOCGIFCONF or getprocs64().
+  target_compile_definitions(libbtop PUBLIC _ALL_SOURCE _THREAD_SAFE)
+  # libperfstat: CPU, memory, disk and network counters
+  target_link_libraries(libbtop perfstat)
 endif()
 
 # Check if lowdown is installed
