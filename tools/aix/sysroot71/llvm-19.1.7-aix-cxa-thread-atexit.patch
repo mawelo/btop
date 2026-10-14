@@ -1,0 +1,32 @@
+--- libcxxabi/src/cxa_thread_atexit.cpp.orig	2025-01-14 10:41:02.000000000 +0100
++++ libcxxabi/src/cxa_thread_atexit.cpp	2026-10-12 09:26:08.725097459 +0200
+@@ -21,6 +21,7 @@
+ 
+   using Dtor = void(*)(void*);
+ 
++#if !(defined(_AIX) && !defined(HAVE___CXA_THREAD_ATEXIT_IMPL))
+   extern "C"
+ #ifndef HAVE___CXA_THREAD_ATEXIT_IMPL
+   // A weak symbol is used to detect this function's presence in the C library
+@@ -28,6 +29,7 @@
+   _LIBCXXABI_WEAK
+ #endif
+   int __cxa_thread_atexit_impl(Dtor, void*, void*);
++#endif // btop-aix: XCOFF kennt keine schwachen undefinierten Symbole; AIX 7.1 hat kein __cxa_thread_atexit_impl
+ 
+ #ifndef HAVE___CXA_THREAD_ATEXIT_IMPL
+ 
+@@ -112,9 +114,13 @@
+ #ifdef HAVE___CXA_THREAD_ATEXIT_IMPL
+     return __cxa_thread_atexit_impl(dtor, obj, dso_symbol);
+ #else
++#if defined(_AIX)
++    {   // btop-aix: immer die eigene Implementierung (kein weak-Symbol auf XCOFF)
++#else
+     if (__cxa_thread_atexit_impl) {
+       return __cxa_thread_atexit_impl(dtor, obj, dso_symbol);
+     } else {
++#endif
+       // Initialize the dtors std::__libcpp_tls_key (uses __cxa_guard_*() for
+       // one-time initialization and __cxa_atexit() for destruction)
+       static DtorsManager manager;
