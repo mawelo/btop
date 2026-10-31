@@ -1,0 +1,72 @@
+btop on IBM AIX
+===============
+
+This package installs the AIX port of btop, a resource monitor for the
+terminal (https://github.com/aristocratos/btop).
+
+Requirements
+------------
+* AIX 6.1 TL7 or later: one package for 6.1, 7.1, 7.2 and 7.3 (started on
+  6100-07, 6100-09, 7100-02, 7100-05, 7200-05 and 7300-04). The binary is built
+  against the AIX 6.1 libraries and probes the libperfstat structure size at
+  run time, so newer libperfstat versions are read correctly.
+* rpm.rte 4.9.1.3 or newer (AIX Toolbox for Linux Applications). Hosts with
+  the old rpm.rte 3.0.5 cannot install the package (it needs
+  rpmlib(PayloadFilesHavePrefix)): unpack the tar archive of the same release,
+  see below. The RPM refuses to install over a /usr/bin/btop that is not its
+  own symlink.
+* bos.perf.libperfstat (part of the base operating system).
+* No UTF-8 locale is needed. The launcher /opt/btop/bin/btop adds --force-utf
+  when none is active, and sets TERM=xterm-256color when TERM is empty.
+
+Install, start, remove
+----------------------
+    rpm -ivh btop-<version>-<release>.aix6.1.ppc.rpm   # "aix6.1" names the minimum release; rpm on 7.1-7.3 accepts it
+    btop                      # /usr/bin/btop -> /opt/btop/bin/btop
+    rpm -e btop
+
+Tar archive (rpm.rte 3.0.5). It contains
+only opt/btop, so nothing outside that directory is touched:
+
+    cd / && gzip -dc btop-<version>-<release>.aix6.1.ppc.tar.gz | tar -xf -
+    ln -s /opt/btop/bin/btop /usr/bin/btop     # optional
+    rm -rf /opt/btop /usr/bin/btop             # uninstall
+
+Without root, unpack into any directory and start the launcher there; it
+follows symlinks and runs the btop.bin next to it:
+
+    mkdir ~/btop && cd ~/btop && gzip -dc /path/to/btop-<version>-<release>.aix6.1.ppc.tar.gz | tar -xf -
+    ~/btop/opt/btop/bin/btop
+
+A 256-colour terminal (xterm-256color, PuTTY with "xterm-256color") gives
+the intended look; aixterm and vt100 work with the "tty" theme or
+`btop --low-color`.
+
+Layout
+------
+    /opt/btop/bin/btop             launcher (shell script)
+    /opt/btop/bin/btop.bin         the program (64-bit XCOFF, static C++ runtime)
+    /opt/btop/share/btop/themes    themes shipped with btop
+    /opt/btop/share/doc/btop       README.md, LICENSE, this file
+    /usr/bin/btop                  symlink to the launcher (RPM; optional with the tar)
+    ~/.config/btop                 per user configuration
+    ~/.local/state/btop.log        per user log
+
+What the port shows
+-------------------
+CPU, load and frequency from libperfstat (DLPAR changes are followed), memory
+and paging space, mounted file systems from mntctl/statvfs plus the physical
+volumes (hdiskN) with their I/O, network interfaces, and processes from
+getprocs64 (kernel "wait" processes are hidden). Per file system I/O needs
+LVM statistics (`lvmstat -e -v <vg>`). Not available on AIX: sensors,
+battery, GPU. Inside a WPAR the header shows "WPAR".
+
+Provenance
+----------
+Built on an AIX 7.2 host with IBM Open XL C/C++ 17.1.3 against an AIX 6.1
+sysroot and a statically linked libc++ 19.1.7 (the C library functions AIX 6.1
+lacks, aligned_alloc and the POSIX 2008 locale calls, are replaced inside that
+runtime). Source: branch aix-public of the fork https://github.com/mawelo/btop;
+the patch series, the upstream base commit and the signed release files are
+in https://github.com/mawelo/aix-btop. `btop --version` prints the
+commit the binary was built from.
