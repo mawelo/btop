@@ -92,18 +92,22 @@ namespace Term {
 		// Query dimensions of '/dev/tty' of the 'STDOUT_FILENO' isn't available.
 		// This variable is set in those cases to avoid calls to ioctl
 		constinit static bool uses_dev_tty = false;
+		//? Log each failure only once; refresh() runs in the input loop and flooded btop.log (thousands of lines per second)
+		constinit static bool dev_tty_failed = false;
 		struct winsize wsize {};
 		if (uses_dev_tty || ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize) < 0 || (wsize.ws_col == 0 && wsize.ws_row == 0)) {
-			Logger::error(R"(Couldn't determine terminal size of "STDOUT_FILENO"!)");
+			if (not uses_dev_tty and not dev_tty_failed) Logger::error(R"(Couldn't determine terminal size of "STDOUT_FILENO"!)");
 			auto dev_tty = open("/dev/tty", O_RDONLY | O_CLOEXEC);
 			if (dev_tty != -1) {
 				ioctl(dev_tty, TIOCGWINSZ, &wsize);
 				close(dev_tty);
 			}
 			else {
-				Logger::error(R"(Couldn't determine terminal size of "/dev/tty"!)");
+				if (not dev_tty_failed) Logger::error(R"(Couldn't determine terminal size of "/dev/tty"!)");
+				dev_tty_failed = true;
 				return false;
 			}
+			dev_tty_failed = false;
 			uses_dev_tty = true;
 		}
 		if (width != wsize.ws_col or height != wsize.ws_row) {
@@ -747,6 +751,9 @@ const string Fx::us = e + "29m";	//* Strike/crossed-out on/off
 
 //* Reset foreground/background color and text effects
 const string Fx::reset_base = e + "0m";
+
+//* Defined here, after reset_base, to guarantee initialization order
+string Fx::reset = reset_base;
 
 //* Regex for matching color, style and cursor move escape sequences
 const std::regex Fx::escape_regex("\033\\[\\d+;?\\d?;?\\d*;?\\d*;?\\d*(m|f|s|u|C|D|A|B){1}");

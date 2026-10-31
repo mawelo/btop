@@ -19,6 +19,7 @@ tab-size = 4
 #include "btop_menu.hpp"
 
 #include "btop_config.hpp"
+#include "btop_core.hpp"
 #include "btop_draw.hpp"
 #include "btop_log.hpp"
 #include "btop_shared.hpp"
@@ -110,6 +111,16 @@ namespace Menu {
 		"SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH",
 		"SIGIO", "SIGPWR", "SIGSYS"
 #endif
+#elif defined(_AIX)
+		// Signal numbers from <sys/signal.h> on AIX 7.2 (26 is unassigned)
+		"SIGHUP", "SIGINT", "SIGQUIT", "SIGILL",
+		"SIGTRAP", "SIGABRT", "SIGEMT", "SIGFPE",
+		"SIGKILL", "SIGBUS", "SIGSEGV", "SIGSYS",
+		"SIGPIPE", "SIGALRM", "SIGTERM", "SIGURG",
+		"SIGSTOP", "SIGTSTP", "SIGCONT", "SIGCHLD",
+		"SIGTTIN", "SIGTTOU", "SIGIO", "SIGXCPU",
+		"SIGXFSZ", "26", "SIGMSG", "SIGWINCH",
+		"SIGPWR", "SIGUSR1", "SIGUSR2"
 #elif defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__APPLE__)
 		"SIGHUP", "SIGINT", "SIGQUIT", "SIGILL",
 		"SIGTRAP", "SIGABRT", "SIGEMT", "SIGFPE",
@@ -1031,12 +1042,8 @@ namespace Menu {
 		else if (is_in(key, "enter", "space") and selected_signal >= 0) {
 			ChooseEntering:
 			signalKillRet = 0;
-			if (s_pid < 1) {
-				signalKillRet = ESRCH;
-				menuMask.set(SignalReturn);
-			}
-			else if (kill(s_pid.value(), selected_signal) != 0) {
-				signalKillRet = errno;
+			if (auto sent = Core::send_signal(s_pid.value(), selected_signal); not sent) {
+				signalKillRet = sent.error();
 				menuMask.set(SignalReturn);
 			}
 			goto MenuClosing;
@@ -1159,8 +1166,8 @@ namespace Menu {
 		auto ret = messageBox.input(key);
 		if (ret == msgBox::Ok_Yes) {
 			signalKillRet = 0;
-			if (kill(s_pid.value(), signalToSend) != 0) {
-				signalKillRet = errno;
+			if (auto sent = Core::send_signal(s_pid.value(), signalToSend); not sent) {
+				signalKillRet = sent.error();
 				menuMask.set(SignalReturn);
 			}
 			messageBox.clear();
