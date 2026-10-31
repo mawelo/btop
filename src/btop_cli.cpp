@@ -171,6 +171,28 @@ namespace Cli {
 				cli.themes_dir = std::make_optional(themes_dir);
 				continue;
 			}
+			if (arg == "--mcp-stdio") {
+				cli.mcp_stdio = true;
+				continue;
+			}
+			if (arg == "--mcp-allow-signals") {
+				cli.mcp_allow_signals = true;
+				continue;
+			}
+			if (arg == "--mcp-tools") {
+				// This flag requires an argument.
+				if (++it == args.end()) {
+					error("MCP tools requires an argument");
+					return std::unexpected { 1 };
+				}
+				auto tools_file = stdfs::path { *it };
+				if (not stdfs::is_regular_file(tools_file)) {
+					error("MCP tools file does not exist or is not a regular file");
+					return std::unexpected { 1 };
+				}
+				cli.mcp_tools = std::make_optional(tools_file);
+				continue;
+			}
 			if (arg == "-u" || arg == "--update") {
 				// This flag requires an argument.
 				if (++it == args.end()) {
@@ -257,6 +279,9 @@ namespace Cli {
 			"  {2}-p, --preset{1} <id>       Start with a preset (0-9)\n"
 			"  {2}-t, --tty{1}               Force tty mode with ANSI graph symbols and 16 colors only\n"
 			"  {2}    --themes-dir{1} <dir>  Path to a custom themes directory\n"
+			"  {2}    --mcp-stdio{1}         Run without terminal as MCP server on stdin/stdout (JSON-RPC)\n"
+			"  {2}    --mcp-tools{1} <file>  Lua tool registry for --mcp-stdio (default: share/btop/mcp/tools.lua)\n"
+			"  {2}    --mcp-allow-signals{1} Offer the send_signal tool with --mcp-stdio\n"
 			"  {2}    --no-tty{1}            Force disable tty mode\n"
 			"  {2}-u, --update{1} <ms>       Set an initial update rate in milliseconds\n"
 			"  {2}    --default-config{1}    Print default config to standard output\n"
