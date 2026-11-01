@@ -1,0 +1,33 @@
+--- libunwind/src/CMakeLists.txt.orig	2025-01-14 10:41:02.000000000 +0100
++++ libunwind/src/CMakeLists.txt	2026-10-12 09:16:49.599261968 +0200
+@@ -6,7 +6,7 @@
+     Unwind-seh.cpp
+     )
+ 
+-if(${CMAKE_SYSTEM_NAME} MATCHES "AIX")
++if ("${CMAKE_SYSTEM_NAME}" MATCHES "AIX")
+   list(APPEND LIBUNWIND_CXX_SOURCES
+     Unwind_AIXExtras.cpp
+     )
+--- libcxxabi/CMakeLists.txt.orig	2025-01-14 10:41:02.000000000 +0100
++++ libcxxabi/CMakeLists.txt	2026-10-12 09:16:49.612312624 +0200
+@@ -240,7 +240,7 @@
+ #===============================================================================
+ 
+ # Configure target flags
+-if (${CMAKE_SYSTEM_NAME} MATCHES "AIX")
++if ("${CMAKE_SYSTEM_NAME}" MATCHES "AIX")
+   add_flags_if_supported("-mdefault-visibility-export-mapping=explicit")
+   set(CMAKE_AIX_EXPORT_ALL_SYMBOLS OFF)
+ endif()
+--- libcxx/CMakeLists.txt.orig	2025-01-14 10:41:02.000000000 +0100
++++ libcxx/CMakeLists.txt	2026-10-12 09:16:49.622333531 +0200
+@@ -489,7 +489,7 @@
+ # 'config-ix' use them during feature checks. It also adds them to both
+ # 'LIBCXX_COMPILE_FLAGS' and 'LIBCXX_LINK_FLAGS'
+ 
+-if (${CMAKE_SYSTEM_NAME} MATCHES "AIX")
++if ("${CMAKE_SYSTEM_NAME}" MATCHES "AIX")
+   add_flags_if_supported("-mdefault-visibility-export-mapping=explicit")
+   set(CMAKE_AIX_EXPORT_ALL_SYMBOLS OFF)
+ endif()
