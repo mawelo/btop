@@ -1,0 +1,3 @@
+Lua 5.4.8, unchanged from https://www.lua.org/ftp/lua-5.4.8.tar.gz (downloaded 2026-10-19).
+sha256 4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae (equal to the list on https://www.lua.org/ftp/).
+Taken over: src/*.c and src/*.h without lua.c and luac.c (programs), and README. LICENSE is the license block from src/lua.h.
