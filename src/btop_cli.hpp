@@ -32,6 +32,12 @@ namespace Cli {
 		std::optional<stdfs::path> themes_dir;
 		// The initial refresh rate
 		std::optional<std::uint32_t> updates;
+		// Run headless as MCP server on stdio (btop-aix, src/btop_mcp.cpp)
+		bool mcp_stdio {};
+		// Lua tool registry for the MCP server
+		std::optional<stdfs::path> mcp_tools;
+		// Offer the send_signal tool
+		bool mcp_allow_signals {};
 	};
 
 	using Result = std::expected<Cli, std::int32_t>;
