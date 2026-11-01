@@ -22,7 +22,7 @@ include(CMakeDependentOption)
 # Make our Find<Package>.cmake files available
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_COLOR_DIAGNOSTICS ON)
@@ -56,9 +56,23 @@ add_library(libbtop OBJECT
   src/btop_shared.cpp
   src/btop_theme.cpp
   src/btop_tools.cpp
+  src/btop_core.cpp
+  src/btop_lua.cpp
+  src/btop_mcp.cpp
 )
 
 target_link_libraries(btop libbtop)
+
+# Lua 5.4.8 (libs/lua-5.4.8, unchanged upstream sources) for the scripting API (src/btop_lua.cpp).
+# Compiled as C++: lua_error then throws and unwinds C++ frames instead of longjmp over their destructors.
+file(GLOB BTOP_LUA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/libs/lua-5.4.8/src/*.c)
+set_source_files_properties(${BTOP_LUA_SOURCES} PROPERTIES LANGUAGE CXX)
+add_library(btop_lua STATIC ${BTOP_LUA_SOURCES})
+target_include_directories(btop_lua SYSTEM PUBLIC libs/lua-5.4.8/src)
+target_compile_definitions(btop_lua PRIVATE LUA_USE_POSIX)
+target_link_libraries(libbtop btop_lua)
+# Reusable headers (symlinks into the shared library collection; the CI driver ships them dereferenced)
+target_include_directories(libbtop PUBLIC libs/reuse)
 
 if(BTOP_LTO)
   check_ipo_supported()
@@ -79,6 +93,8 @@ elseif(LINUX)
   if(BTOP_GPU)
     add_subdirectory(src/linux/intel_gpu_top)
   endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  target_sources(libbtop PRIVATE src/aix/btop_collect.cpp src/aix/aix_ifaddrs.cpp src/aix/aix_selfpath.cpp)
 else()
   message(FATAL_ERROR "${CMAKE_SYSTEM_NAME} is not supported")
 endif()
@@ -89,6 +105,11 @@ execute_process(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   OUTPUT_VARIABLE GIT_COMMIT
   OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+# Source tarballs have no .git: the commit can then be passed in (CI driver, package build)
+set(BTOP_GIT_COMMIT "" CACHE STRING "Commit to embed in --version when the tree is not a git checkout")
+if(NOT GIT_COMMIT AND BTOP_GIT_COMMIT)
+  set(GIT_COMMIT "${BTOP_GIT_COMMIT}")
+endif()
 set(CONFIGURE_COMMAND
     "cmake -DBTOP_STATIC=${BTOP_STATIC} -DBTOP_GPU=${BTOP_GPU}"
 )
@@ -135,7 +156,8 @@ target_compile_options(libbtop PUBLIC -Wall -Wextra -Wpedantic)
 
 include(CheckCXXCompilerFlag)
 
-if(NOT APPLE)
+if(NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  # IBM Open XL on AIX accepts the flag but ignores it with a warning on every file
   target_compile_options(libbtop PUBLIC -fstack-clash-protection)
 endif()
 check_cxx_compiler_flag(-fstack-protector HAS_FSTACK_PROTECTOR)
@@ -247,6 +269,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
   find_package(kvm REQUIRED)
   find_package(proplib REQUIRED)
   target_link_libraries(libbtop kvm::kvm proplib::proplib)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+  # _ALL_SOURCE: with -std=c++26 (strict ANSI) the AIX headers hide BSD and
+  # XPG extensions such as sa_len, SIOCGIFCONF or getprocs64().
+  target_compile_definitions(libbtop PUBLIC _ALL_SOURCE _THREAD_SAFE)
+  # libperfstat: CPU, memory, disk and network counters
+  target_link_libraries(libbtop perfstat)
 endif()
 
 # Check if lowdown is installed
@@ -272,6 +300,7 @@ install(FILES "btop.desktop" DESTINATION "share/applications")
 install(FILES "Img/icon.png" DESTINATION "share/icons/hicolor/48x48/apps" RENAME "btop.png")
 install(FILES "Img/icon.svg" DESTINATION "share/icons/hicolor/scalable/apps" RENAME "btop.svg")
 install(DIRECTORY "themes" DESTINATION "share/btop")
+install(DIRECTORY "mcp" DESTINATION "share/btop")
 
 include(CTest)
 if(BUILD_TESTING)
