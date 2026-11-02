@@ -106,7 +106,25 @@ namespace Input {
 			waitptr = &wait;
 		}
 
+	#ifdef _AIX
+		//? AIX 6.1/7.1 libc pselect() ignores tv_nsec ({0 s, 999 ms} returns at once, {1 s, 500 ms} waits 1000 ms;
+		//? tools/aix/probes/pselect_probe.c), so the main loop spun for up to one second per update cycle.
+		//? libc itself emulates pselect as sigprocmask + select + sigprocmask (truss); do the same with a correct timeval.
+		struct timeval tv;
+		struct timeval *tvptr = nullptr;
+		if (waitptr != nullptr) {
+			tv.tv_sec = wait.tv_sec;
+			tv.tv_usec = wait.tv_nsec / 1000;
+			tvptr = &tv;
+		}
+		sigset_t old_mask;
+		pthread_sigmask(SIG_SETMASK, &signal_mask, &old_mask);
+		const int ready = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, tvptr);
+		pthread_sigmask(SIG_SETMASK, &old_mask, nullptr);
+		if (ready > 0) {
+	#else
 		if(pselect(STDIN_FILENO + 1, &fds, nullptr, nullptr, waitptr, &signal_mask) > 0) {
+	#endif
 			input.clear();
 			char buf[1024];
 			ssize_t count = 0;

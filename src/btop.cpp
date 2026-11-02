@@ -57,6 +57,10 @@ tab-size = 4
 	#include <unistd.h>
 #endif
 
+#ifdef _AIX
+	#include "aix/aix_selfpath.hpp"
+#endif
+
 #include <fmt/core.h>
 #include <fmt/ostream.h>
 
@@ -65,6 +69,7 @@ tab-size = 4
 #include "btop_draw.hpp"
 #include "btop_input.hpp"
 #include "btop_log.hpp"
+#include "btop_mcp.hpp"
 #include "btop_menu.hpp"
 #include "btop_shared.hpp"
 #include "btop_theme.hpp"
@@ -213,7 +218,8 @@ void clean_quit(int sig) {
 	Global::quitting = true;
 	Runner::stop();
 	if (Global::_runner_started) {
-	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__
+	#if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__ || defined _AIX
+		// AIX has no pthread_timedjoin_np()
 		if (pthread_join(Runner::runner_id, nullptr) != 0) {
 			Logger::warning("Failed to join _runner thread on exit!");
 		}
@@ -256,7 +262,12 @@ void clean_quit(int sig) {
 #if defined __APPLE__ || defined __OpenBSD__ || defined __NetBSD__
 	_Exit(excode);
 #else
+#if defined(_AIX)
+	// quick_exit(3) exists on AIX only since 6.1 TL9 / 7.1 TL3 (missing on 7100-02); btop registers no at_quick_exit handlers
+	_Exit(excode);
+#else
 	quick_exit(excode);
+#endif
 #endif
 }
 
@@ -909,9 +920,18 @@ static auto configure_tty_mode(std::optional<bool> force_tty) {
 		if (sysctl(mib, 4, buf, &bufsize, NULL, 0) == 0)
 			Global::self_path = fs::path(buf).remove_filename();
 	}
+#elif defined(_AIX)
+	//? No /proc/self/exe on AIX: argv[0] of the own process via getprocs64/getargs (src/aix/aix_selfpath.cpp)
+	Global::self_path = Aix::executable_dir();
 #endif
 	if (std::error_code ec; not Global::self_path.empty()) {
+	#ifdef _AIX
+		//? fs::canonical fails on AIX 6.1 and 7.2 TL5 (realpath(p, NULL) -> EINVAL), see src/aix/aix_selfpath.hpp
+		Theme::theme_dir = Aix::canonical(Global::self_path / "../share/btop/themes");
+		if (Theme::theme_dir.empty()) ec = std::make_error_code(std::errc::no_such_file_or_directory);
+	#else
 		Theme::theme_dir = fs::canonical(Global::self_path / "../share/btop/themes", ec);
+	#endif
 		if (ec or not fs::is_directory(Theme::theme_dir) or access(Theme::theme_dir.c_str(), R_OK) == -1) Theme::theme_dir.clear();
 	}
 	//? If relative path failed, check two most common absolute paths
@@ -932,6 +952,15 @@ static auto configure_tty_mode(std::optional<bool> force_tty) {
 
 	//? Config init
 	init_config(cli.low_color, cli.filter);
+
+	//? Headless MCP server: no terminal, no locale check (JSON is UTF-8 by definition), see src/btop_mcp.cpp
+	if (cli.mcp_stdio) {
+		return Mcp::run_stdio({
+			.tools_file = cli.mcp_tools.value_or(Mcp::default_tools_file()),
+			.allow_signals = cli.mcp_allow_signals,
+			.interval_ms = cli.updates.value_or(static_cast<std::uint32_t>(Config::getI("update_ms"))),
+		});
+	}
 
 	//? Try to find and set a UTF-8 locale
 	if (std::setlocale(LC_ALL, "") != nullptr and not std::string_view { std::setlocale(LC_ALL, "") }.contains(";")
